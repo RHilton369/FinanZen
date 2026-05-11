@@ -50,26 +50,26 @@ export async function dreRoutes(server: FastifyInstance) {
       };
 
       for (const t of transactions) {
-        if (!t.chartOfAccount) continue;
-        
         const amount = Number(t.amount);
-        const category = t.chartOfAccount.dreCategory || 'OUTROS';
+        const category = t.chartOfAccount?.dreCategory || 'OUTROS';
 
         if (!dre.detalhes[category]) dre.detalhes[category] = 0;
         dre.detalhes[category] += amount;
 
-        // Lógica simplificada baseada no tipo (A ser refinada pelas categorias exatas da DRE)
+        // Lógica simplificada baseada no tipo
         if (t.type === "INCOME") {
           dre.receitaBruta += amount;
         } else if (t.type === "EXPENSE") {
-          // Categorização heurística para o MVP
-          if (category.toUpperCase().includes("CUSTO")) {
+          // Categorização heurística para o MVP ou baseada na categoria da DRE
+          const upperCategory = category.toUpperCase();
+          if (upperCategory.includes("CUSTO")) {
             dre.custos += amount;
-          } else if (category.toUpperCase().includes("IMPOSTO")) {
+          } else if (upperCategory.includes("IMPOSTO")) {
             dre.impostos += amount;
-          } else if (category.toUpperCase().includes("DEDU")) {
+          } else if (upperCategory.includes("DEDU")) {
             dre.deducoes += amount;
           } else {
+            // Se não houver conta ou categoria reconhecida, cai em despesas operacionais por padrão no DRE
             dre.despesasOperacionais += amount;
           }
         }

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Trash2, Landmark, Loader2 } from "lucide-react";
-import { createBankAccount, deleteBankAccount, fetchBankAccounts, extractErrorMessage } from "@/lib/api";
+import { Trash2, Landmark, Loader2, Pencil } from "lucide-react";
+import { createBankAccount, deleteBankAccount, updateBankAccount, fetchBankAccounts, fetchBranches, extractErrorMessage } from "@/lib/api";
 import type { NotificationState } from "@/types";
 
 interface BankAccountsTabProps {
@@ -12,18 +12,22 @@ interface BankAccountsTabProps {
 
 export default function BankAccountsTab({ setNotification, refreshData }: BankAccountsTabProps) {
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
   const [newBankAccount, setNewBankAccount] = useState({ name: "", bank: "", agency: "", account: "" });
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", agency: "", account: "" });
 
   const loadBankAccounts = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetchBankAccounts();
-      if (res.success) setBankAccounts(res.bankAccounts);
+      const [accRes, branchRes] = await Promise.all([fetchBankAccounts(), fetchBranches()]);
+      if (accRes.success) setBankAccounts(accRes.bankAccounts);
+      if (branchRes.success) setBranches(branchRes.branches);
     } catch (error) {
-      setNotification({ msg: extractErrorMessage(error, "Erro ao carregar contas bancárias."), type: "error" });
+      setNotification({ msg: extractErrorMessage(error, "Erro ao carregar dados."), type: "error" });
     } finally {
       setIsLoading(false);
     }
@@ -33,9 +37,10 @@ export default function BankAccountsTab({ setNotification, refreshData }: BankAc
 
   const handleCreate = async () => {
     if (!newBankAccount.name || isCreating) return;
+    const branchId = branches[0]?.id || "00000000-0000-0000-0000-000000000000";
     setIsCreating(true);
     try {
-      await createBankAccount({ ...newBankAccount, branchId: "00000000-0000-0000-0000-000000000000" });
+      await createBankAccount({ ...newBankAccount, branchId });
       setNotification({ msg: "Conta criada!", type: "success" });
       setNewBankAccount({ name: "", bank: "", agency: "", account: "" });
       loadBankAccounts();
@@ -60,6 +65,27 @@ export default function BankAccountsTab({ setNotification, refreshData }: BankAc
       setNotification({ msg: extractErrorMessage(error, "Erro ao excluir conta."), type: "error" });
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleEdit = (acc: any) => {
+    setEditingId(acc.id);
+    setEditForm({ name: acc.name, agency: acc.agency || "", account: acc.account || "" });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId || !editForm.name) return;
+    setIsCreating(true);
+    try {
+      await updateBankAccount(editingId, editForm);
+      setNotification({ msg: "Conta atualizada!", type: "success" });
+      setEditingId(null);
+      loadBankAccounts();
+      refreshData();
+    } catch (error) {
+      setNotification({ msg: extractErrorMessage(error, "Erro ao atualizar conta."), type: "error" });
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -95,12 +121,47 @@ export default function BankAccountsTab({ setNotification, refreshData }: BankAc
                     <p className="text-xs text-gray-500">{acc.agency ? `Ag: ${acc.agency}` : ""} {acc.account ? `Cc: ${acc.account}` : ""}</p>
                   </div>
                 </div>
-                <button disabled={isDeleting} onClick={() => handleDelete(acc)} className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer z-10">
-                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                </button>
+                <div className="flex items-center gap-2 z-10">
+                  <button disabled={isDeleting || editingId === acc.id} onClick={() => handleEdit(acc)} className="p-2 text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors cursor-pointer" title="Editar">
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button disabled={isDeleting} onClick={() => handleDelete(acc)} className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer" title="Excluir">
+                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {editingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-md p-6 space-y-4 animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold text-white">Editar Conta</h3>
+            
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Nome (Ex: Conta Nubank)</label>
+              <input type="text" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-2 focus:ring-orange-500" />
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Agência</label>
+              <input type="text" value={editForm.agency} onChange={e => setEditForm({...editForm, agency: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-2 focus:ring-orange-500" />
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Conta</label>
+              <input type="text" value={editForm.account} onChange={e => setEditForm({...editForm, account: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-2 focus:ring-orange-500" />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button onClick={() => setEditingId(null)} className="flex-1 py-3 bg-white/5 text-white rounded-xl font-bold hover:bg-white/10 transition">Cancelar</button>
+              <button onClick={handleSaveEdit} disabled={isCreating} className="flex-1 py-3 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 transition flex items-center justify-center gap-2">
+                {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Salvar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

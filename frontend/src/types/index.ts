@@ -74,6 +74,7 @@ export interface DashboardProps {
   transacoes: Transaction[];
   trendReceitas: number;
   trendDespesas: number;
+  errorMsg?: string;
 }
 
 /** Props compartilhadas entre as abas que precisam de notificação e formatação */

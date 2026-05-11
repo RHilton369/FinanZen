@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Trash2, Users, Loader2 } from "lucide-react";
-import { createCustomer, deleteCustomer, fetchCustomers, extractErrorMessage } from "@/lib/api";
+import { Trash2, Users, Loader2, Pencil } from "lucide-react";
+import { createCustomer, deleteCustomer, updateCustomer, fetchCustomers, fetchBranches, extractErrorMessage } from "@/lib/api";
 import type { NotificationState } from "@/types";
 
 interface CustomersTabProps {
@@ -15,18 +15,22 @@ export default function CustomersTab({
   refreshData,
 }: CustomersTabProps) {
   const [customers, setCustomers] = useState<any[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
   const [newCustomer, setNewCustomer] = useState({ name: "", document: "", phone: "" });
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", document: "", phone: "" });
 
   const loadCustomers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetchCustomers();
-      if (res.success) setCustomers(res.customers);
+      const [custRes, branchRes] = await Promise.all([fetchCustomers(), fetchBranches()]);
+      if (custRes.success) setCustomers(custRes.customers);
+      if (branchRes.success) setBranches(branchRes.branches);
     } catch (error) {
-      setNotification({ msg: extractErrorMessage(error, "Erro ao carregar clientes."), type: "error" });
+      setNotification({ msg: extractErrorMessage(error, "Erro ao carregar dados."), type: "error" });
     } finally {
       setIsLoading(false);
     }
@@ -39,9 +43,10 @@ export default function CustomersTab({
   const handleCreate = async () => {
     if (!newCustomer.name || isCreating) return;
 
+    const branchId = branches[0]?.id || "00000000-0000-0000-0000-000000000000";
     setIsCreating(true);
     try {
-      await createCustomer({ ...newCustomer, branchId: "00000000-0000-0000-0000-000000000000" });
+      await createCustomer({ ...newCustomer, branchId });
       setNotification({ msg: "Cliente criado!", type: "success" });
       setNewCustomer({ name: "", document: "", phone: "" });
       loadCustomers();
@@ -67,6 +72,27 @@ export default function CustomersTab({
       setNotification({ msg: extractErrorMessage(error, "Erro ao excluir cliente."), type: "error" });
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleEdit = (customer: any) => {
+    setEditingId(customer.id);
+    setEditForm({ name: customer.name, document: customer.document || "", phone: customer.phone || "" });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId || !editForm.name) return;
+    setIsCreating(true); // Using isCreating for loading state on save as well
+    try {
+      await updateCustomer(editingId, editForm);
+      setNotification({ msg: "Cliente atualizado!", type: "success" });
+      setEditingId(null);
+      loadCustomers();
+      refreshData();
+    } catch (error) {
+      setNotification({ msg: extractErrorMessage(error, "Erro ao atualizar cliente."), type: "error" });
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -127,16 +153,72 @@ export default function CustomersTab({
                     <p className="text-xs text-gray-500">{customer.document || "S/ Doc"}</p>
                   </div>
                 </div>
-                <button
-                  disabled={isDeleting}
-                  onClick={() => handleDelete(customer)}
-                  className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer z-10"
-                >
-                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                </button>
+                <div className="flex items-center gap-2 z-10">
+                  <button
+                    disabled={isDeleting || editingId === customer.id}
+                    onClick={() => handleEdit(customer)}
+                    className="p-2 text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors cursor-pointer"
+                    title="Editar"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    disabled={isDeleting}
+                    onClick={() => handleDelete(customer)}
+                    className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                    title="Excluir"
+                  >
+                    {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {editingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-md p-6 space-y-4 animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold text-white">Editar Cliente</h3>
+            
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Nome</label>
+              <input 
+                type="text" 
+                value={editForm.name}
+                onChange={e => setEditForm({...editForm, name: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">CPF/CNPJ</label>
+              <input 
+                type="text" 
+                value={editForm.document}
+                onChange={e => setEditForm({...editForm, document: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button 
+                onClick={() => setEditingId(null)}
+                className="flex-1 py-3 bg-white/5 text-white rounded-xl font-bold hover:bg-white/10 transition"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleSaveEdit}
+                disabled={isCreating}
+                className="flex-1 py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition flex items-center justify-center gap-2"
+              >
+                {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Salvar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

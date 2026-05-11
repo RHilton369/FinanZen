@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from "recharts";
 import { Activity, AlertTriangle, TrendingUp, CalendarDays } from "lucide-react";
-import { fetchCashFlowProjection } from "@/lib/api";
+import { fetchCashFlowProjection, fetchBranches } from "@/lib/api";
 import { formatCurrency } from "@/lib/formatters";
 import type { NotificationState } from "@/types";
 
@@ -24,7 +24,16 @@ export default function CashFlowTab({ setNotification }: CashFlowTabProps) {
   const loadProjection = async () => {
     setIsLoading(true);
     try {
-      const branchId = "00000000-0000-0000-0000-000000000000"; // Dummy branch MVP
+      // Buscar filial ativa dinamicamente
+      const resBranches = await fetchBranches();
+      const branches = resBranches.branches || [];
+      const branchId = branches[0]?.id;
+
+      if (!branchId) {
+        setNotification({ msg: "Nenhuma filial encontrada para projeção.", type: "error" });
+        return;
+      }
+
       const res = await fetchCashFlowProjection(branchId, 15);
       if (res.success) {
         setProjection(res.projection);

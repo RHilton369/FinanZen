@@ -107,22 +107,27 @@ export function updateTransaction(
 
 export function fetchBranches() { return request<{ success: boolean, branches: any[] }>("/branches"); }
 export function createBranch(data: any) { return request("/branches", { method: "POST", body: JSON.stringify(data) }); }
+export function updateBranch(id: string, data: any) { return request(`/branches/${id}`, { method: "PATCH", body: JSON.stringify(data) }); }
 export function deleteBranch(id: string) { return request(`/branches/${id}`, { method: "DELETE" }); }
 
 export function fetchCustomers(branchId?: string) { return request<{ success: boolean, customers: any[] }>(`/customers${branchId ? `?branchId=${branchId}` : ''}`); }
 export function createCustomer(data: any) { return request("/customers", { method: "POST", body: JSON.stringify(data) }); }
+export function updateCustomer(id: string, data: any) { return request(`/customers/${id}`, { method: "PATCH", body: JSON.stringify(data) }); }
 export function deleteCustomer(id: string) { return request(`/customers/${id}`, { method: "DELETE" }); }
 
 export function fetchSuppliers(branchId?: string) { return request<{ success: boolean, suppliers: any[] }>(`/suppliers${branchId ? `?branchId=${branchId}` : ''}`); }
 export function createSupplier(data: any) { return request("/suppliers", { method: "POST", body: JSON.stringify(data) }); }
+export function updateSupplier(id: string, data: any) { return request(`/suppliers/${id}`, { method: "PATCH", body: JSON.stringify(data) }); }
 export function deleteSupplier(id: string) { return request(`/suppliers/${id}`, { method: "DELETE" }); }
 
 export function fetchBankAccounts(branchId?: string) { return request<{ success: boolean, bankAccounts: any[] }>(`/bank-accounts${branchId ? `?branchId=${branchId}` : ''}`); }
 export function createBankAccount(data: any) { return request("/bank-accounts", { method: "POST", body: JSON.stringify(data) }); }
+export function updateBankAccount(id: string, data: any) { return request(`/bank-accounts/${id}`, { method: "PATCH", body: JSON.stringify(data) }); }
 export function deleteBankAccount(id: string) { return request(`/bank-accounts/${id}`, { method: "DELETE" }); }
 
 export function fetchChartOfAccounts(branchId?: string) { return request<{ success: boolean, chartOfAccounts: any[] }>(`/chart-of-accounts${branchId ? `?branchId=${branchId}` : ''}`); }
 export function createChartOfAccount(data: any) { return request("/chart-of-accounts", { method: "POST", body: JSON.stringify(data) }); }
+export function updateChartOfAccount(id: string, data: any) { return request(`/chart-of-accounts/${id}`, { method: "PATCH", body: JSON.stringify(data) }); }
 export function deleteChartOfAccount(id: string) { return request(`/chart-of-accounts/${id}`, { method: "DELETE" }); }
 
 // --- Relatórios ---

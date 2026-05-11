@@ -2,18 +2,24 @@
 
 import { useState, useEffect } from "react";
 import { ArrowDownRight, CheckCircle, Clock, XCircle, Search } from "lucide-react";
-import { fetchTransactions, updateTransaction } from "@/lib/api";
+import { fetchTransactions, updateTransaction, deleteTransaction } from "@/lib/api";
 import { formatCurrency } from "@/lib/formatters";
 import type { NotificationState } from "@/types";
+import { Trash2, Pencil, Loader2 } from "lucide-react";
 
 interface PayablesTabProps {
   setNotification: (n: NotificationState) => void;
+  refreshData: () => void;
 }
 
-export default function PayablesTab({ setNotification }: PayablesTabProps) {
+export default function PayablesTab({ setNotification, refreshData }: PayablesTabProps) {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingTx, setEditingTx] = useState<any | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ description: "", amount: 0, dueDate: "" });
 
   useEffect(() => {
     loadPayables();
@@ -36,8 +42,51 @@ export default function PayablesTab({ setNotification }: PayablesTabProps) {
       await updateTransaction(id, { status: newStatus });
       setNotification({ msg: `Status atualizado para ${newStatus}!`, type: "success" });
       loadPayables();
+      refreshData();
     } catch {
       setNotification({ msg: "Erro ao atualizar status.", type: "error" });
+    }
+  };
+
+  const handleDelete = async (tx: any) => {
+    if (deletingId) return;
+    if (!confirm(`Excluir a despesa "${tx.description}"?`)) return;
+
+    setDeletingId(tx.id);
+    try {
+      await deleteTransaction(tx.id);
+      setNotification({ msg: "Despesa excluída!", type: "success" });
+      loadPayables();
+      refreshData();
+    } catch {
+      setNotification({ msg: "Erro ao excluir despesa.", type: "error" });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const openEdit = (tx: any) => {
+    setEditingTx(tx);
+    setEditForm({
+      description: tx.description,
+      amount: Number(tx.amount),
+      dueDate: tx.dueDate ? tx.dueDate.split('T')[0] : ""
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingTx) return;
+    setIsEditing(true);
+    try {
+      await updateTransaction(editingTx.id, editForm);
+      setNotification({ msg: "Despesa atualizada com sucesso!", type: "success" });
+      setEditingTx(null);
+      loadPayables();
+      refreshData();
+    } catch {
+      setNotification({ msg: "Erro ao atualizar despesa.", type: "error" });
+    } finally {
+      setIsEditing(false);
     }
   };
 
@@ -97,15 +146,23 @@ export default function PayablesTab({ setNotification }: PayablesTabProps) {
                     </span>
                   </td>
                   <td className="p-4 text-center">
-                    {t.status !== "PAID" && t.status !== "COMPLETED" ? (
-                       <button onClick={() => handleStatusChange(t.id, "PAID")} className="p-2 text-emerald-400 hover:bg-emerald-400/20 rounded-lg transition" title="Baixar Título">
-                         <CheckCircle className="w-5 h-5" />
-                       </button>
-                    ) : (
-                       <button onClick={() => handleStatusChange(t.id, "PENDENTE")} className="p-2 text-yellow-400 hover:bg-yellow-400/20 rounded-lg transition" title="Estornar">
-                         <Clock className="w-5 h-5" />
-                       </button>
-                    )}
+                    <div className="flex items-center justify-center gap-2">
+                      {t.status !== "PAID" && t.status !== "COMPLETED" ? (
+                         <button onClick={() => handleStatusChange(t.id, "PAID")} className="p-2 text-emerald-400 hover:bg-emerald-400/20 rounded-lg transition" title="Baixar Título">
+                           <CheckCircle className="w-5 h-5" />
+                         </button>
+                      ) : (
+                         <button onClick={() => handleStatusChange(t.id, "PENDENTE")} className="p-2 text-yellow-400 hover:bg-yellow-400/20 rounded-lg transition" title="Estornar">
+                           <Clock className="w-5 h-5" />
+                         </button>
+                      )}
+                      <button onClick={() => openEdit(t)} className="p-2 text-blue-400 hover:bg-blue-400/20 rounded-lg transition" title="Editar">
+                        <Pencil className="w-5 h-5" />
+                      </button>
+                      <button disabled={deletingId === t.id} onClick={() => handleDelete(t)} className="p-2 text-red-400 hover:bg-red-400/20 rounded-lg transition" title="Excluir">
+                        {deletingId === t.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -113,6 +170,62 @@ export default function PayablesTab({ setNotification }: PayablesTabProps) {
           </table>
         </div>
       </div>
+
+      {editingTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-md p-6 space-y-4 animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-bold text-white">Editar Despesa</h3>
+            
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Descrição</label>
+              <input 
+                type="text" 
+                value={editForm.description}
+                onChange={e => setEditForm({...editForm, description: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Valor (R$)</label>
+                <input 
+                  type="number" step="0.01"
+                  value={editForm.amount}
+                  onChange={e => setEditForm({...editForm, amount: Number(e.target.value)})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Vencimento</label>
+                <input 
+                  type="date" 
+                  value={editForm.dueDate}
+                  onChange={e => setEditForm({...editForm, dueDate: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button 
+                onClick={() => setEditingTx(null)}
+                className="flex-1 py-3 bg-white/5 text-white rounded-xl font-bold hover:bg-white/10 transition"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleSaveEdit}
+                disabled={isEditing}
+                className="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 transition flex items-center justify-center gap-2"
+              >
+                {isEditing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

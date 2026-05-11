@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Calendar } from "lucide-react";
-import { fetchDre } from "@/lib/api";
+import { fetchDre, fetchBranches } from "@/lib/api";
 import { formatCurrency } from "@/lib/formatters";
 import type { NotificationState } from "@/types";
 
@@ -22,8 +22,15 @@ export default function DreTab({ setNotification }: DreTabProps) {
   const loadDre = async () => {
     setIsLoading(true);
     try {
-      // Dummy branch for MVP
-      const branchId = "00000000-0000-0000-0000-000000000000";
+      // Buscar filial ativa dinamicamente
+      const resBranches = await fetchBranches();
+      const branches = resBranches.branches || [];
+      const branchId = branches[0]?.id;
+
+      if (!branchId) {
+        setNotification({ msg: "Nenhuma filial encontrada para DRE.", type: "error" });
+        return;
+      }
       
       let start = new Date();
       start.setDate(1);

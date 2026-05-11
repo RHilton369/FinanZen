@@ -19,6 +19,11 @@ export async function bankAccountRoutes(server: FastifyInstance) {
       logger.info({ msg: "Conta bancária criada", bankAccountId: bankAccount.id, traceId: request.id });
       return reply.status(201).send({ success: true, bankAccount });
     } catch (error: unknown) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === PRISMA_FK_VIOLATION) {
+          return reply.status(409).send({ error: "A filial informada não existe ou é inválida." });
+        }
+      }
       logger.error({ msg: "Erro ao criar conta bancária", error: error instanceof Error ? error.message : String(error), traceId: request.id });
       return reply.status(500).send({ error: "Erro interno ao criar conta bancária" });
     }
@@ -49,8 +54,9 @@ export async function bankAccountRoutes(server: FastifyInstance) {
       const bankAccount = await prisma.bankAccount.update({ where: { id }, data: parsed.data });
       return reply.status(200).send({ success: true, bankAccount });
     } catch (error: unknown) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === PRISMA_NOT_FOUND) {
-        return reply.status(404).send({ error: "Conta bancária não encontrada" });
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === PRISMA_NOT_FOUND) return reply.status(404).send({ error: "Conta bancária não encontrada" });
+        if (error.code === PRISMA_FK_VIOLATION) return reply.status(409).send({ error: "Referência de filial inválida." });
       }
       logger.error({ msg: "Erro ao atualizar conta bancária", id, traceId: request.id });
       return reply.status(500).send({ error: "Erro interno" });

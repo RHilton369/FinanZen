@@ -32,6 +32,7 @@ const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444"];
 export default function DashboardClient({
   receitas, despesas, saldo, fluxoCaixa,
   categorias, transacoes, trendReceitas, trendDespesas,
+  errorMsg
 }: DashboardProps) {
   const router = useRouter();
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
@@ -41,12 +42,6 @@ export default function DashboardClient({
   const [isDeleting, setIsDeleting] = useState(false);
   const [notification, setNotification] = useState<NotificationState | null>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIsInitialLoading(false), 1200);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     if (!notification) return;
@@ -105,20 +100,6 @@ export default function DashboardClient({
   // --- Renderização das Abas ---
 
   const renderActiveTab = () => {
-    if (isInitialLoading) {
-      return (
-        <div className="animate-pulse space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => <div key={i} className="glass-card h-32 bg-white/5" />)}
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="glass-card h-80 lg:col-span-2 bg-white/5" />
-            <div className="glass-card h-80 bg-white/5" />
-          </div>
-        </div>
-      );
-    }
-
     switch (activeTab) {
       case "chat":
         return <ChatTab activeTab={activeTab} />;
@@ -137,9 +118,9 @@ export default function DashboardClient({
       case "point_of_sale":
         return <PointOfSaleTab setNotification={setNotification} refreshData={refreshData} />;
       case "payables":
-        return <PayablesTab setNotification={setNotification} />;
+        return <PayablesTab setNotification={setNotification} refreshData={refreshData} />;
       case "receivables":
-        return <ReceivablesTab setNotification={setNotification} />;
+        return <ReceivablesTab setNotification={setNotification} refreshData={refreshData} />;
       case "dre":
         return <DreTab setNotification={setNotification} />;
       case "cash_flow":
