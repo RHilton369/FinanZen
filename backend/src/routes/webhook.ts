@@ -129,15 +129,28 @@ export async function webhookRoutes(server: FastifyInstance) {
         });
       }
 
-      let category = await prisma.category.findUnique({
-        where: { name_userId: { name: financeData.categoria, userId: user.id } },
+      // Achar ou criar a Filial Padrão
+      let branch = await prisma.branch.findFirst({
+        where: { userId: user.id },
       });
-      if (!category) {
-        category = await prisma.category.create({
+      if (!branch) {
+        branch = await prisma.branch.create({
+          data: {
+            name: "Filial Principal",
+            userId: user.id,
+          },
+        });
+      }
+
+      let chartOfAccount = await prisma.chartOfAccount.findFirst({
+        where: { name: financeData.categoria, branchId: branch.id },
+      });
+      if (!chartOfAccount) {
+        chartOfAccount = await prisma.chartOfAccount.create({
           data: {
             name: financeData.categoria,
-            userId: user.id,
-            color: "#3b82f6",
+            branchId: branch.id,
+            type: financeData.tipo === "receita" ? "INCOME" : "EXPENSE",
           },
         });
       }
@@ -147,8 +160,8 @@ export async function webhookRoutes(server: FastifyInstance) {
           amount: financeData.valor,
           type: financeData.tipo === "receita" ? "INCOME" : "EXPENSE",
           description: financeData.descricao,
-          categoryId: category.id,
-          userId: user.id,
+          chartOfAccountId: chartOfAccount.id,
+          branchId: branch.id,
         },
       });
 

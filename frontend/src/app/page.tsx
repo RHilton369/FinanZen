@@ -13,26 +13,37 @@ export default async function Page() {
       type, 
       date, 
       description, 
-      category_id,
-      categories (
+      chart_of_account_id,
+      chart_of_accounts (
         id, 
         name, 
-        color
+        type
       )
     `)
     .order('date', { ascending: false })
-    .limit(500);
+    .limit(200);
 
   if (error) {
-    // Erro é registrado no server log do Next.js automaticamente
-    // Retorno antecipado com dashboard vazio ao invés de silenciar
+    console.error("[page.tsx] Falha ao buscar transações do Supabase:", error.message);
+    return (
+      <DashboardClient
+        receitas={0}
+        despesas={0}
+        saldo={0}
+        fluxoCaixa={[]}
+        categorias={[]}
+        transacoes={[]}
+        trendReceitas={0}
+        trendDespesas={0}
+      />
+    );
   }
 
   // Normalização: Converter snake_case do DB para o padrão do componente
   const normalizedTransactions = (transactions || []).map((tx: any) => ({
     ...tx,
-    categoryId: tx.category_id,
-    category: Array.isArray(tx.categories) ? tx.categories[0] : tx.categories
+    categoryId: tx.chart_of_account_id,
+    category: Array.isArray(tx.chart_of_accounts) ? tx.chart_of_accounts[0] : tx.chart_of_accounts
   }));
 
   let receitas = 0;

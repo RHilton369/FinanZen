@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -9,14 +9,23 @@ import {
 import {
   Wallet, TrendingUp, TrendingDown, Bell, Settings,
   MessageSquare, PieChart as PieIcon, Activity, Trash2, Edit2, X,
+  Building, Users, Truck, Landmark, BookOpen, BarChart3, CalendarDays
 } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
-import { deleteTransaction, updateTransaction } from "@/lib/api";
+import { deleteTransaction, updateTransaction, extractErrorMessage } from "@/lib/api";
 import type { DashboardProps, NotificationState } from "@/types";
 import ChatTab from "./tabs/ChatTab";
-import CategoriesTab from "./tabs/CategoriesTab";
-import AlertsTab from "./tabs/AlertsTab";
 import SettingsTab from "./tabs/SettingsTab";
+import BranchesTab from "./tabs/BranchesTab";
+import CustomersTab from "./tabs/CustomersTab";
+import SuppliersTab from "./tabs/SuppliersTab";
+import BankAccountsTab from "./tabs/BankAccountsTab";
+import ChartOfAccountsTab from "./tabs/ChartOfAccountsTab";
+import PointOfSaleTab from "./tabs/PointOfSaleTab";
+import PayablesTab from "./tabs/PayablesTab";
+import ReceivablesTab from "./tabs/ReceivablesTab";
+import DreTab from "./tabs/DreTab";
+import CashFlowTab from "./tabs/CashFlowTab";
 
 const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444"];
 
@@ -29,6 +38,7 @@ export default function DashboardClient({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [notification, setNotification] = useState<NotificationState | null>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -44,17 +54,21 @@ export default function DashboardClient({
     return () => clearTimeout(timer);
   }, [notification]);
 
-  /** Re-fetch server-side sem recarregar a página inteira */
-  const refreshData = () => router.refresh();
+  /** Re-fetch server-side sem recarregar a página inteira (estabilizado via useCallback) */
+  const refreshData = useCallback(() => router.refresh(), [router]);
 
   const handleDelete = async (id: string) => {
+    if (isDeleting) return;
     if (!confirm("Deseja realmente excluir esta transação?")) return;
+    setIsDeleting(true);
     try {
       await deleteTransaction(id);
       setNotification({ msg: "Transação excluída com sucesso!", type: "success" });
       refreshData();
-    } catch {
-      setNotification({ msg: "Falha ao excluir.", type: "error" });
+    } catch (error) {
+      setNotification({ msg: extractErrorMessage(error, "Falha ao excluir."), type: "error" });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -68,14 +82,15 @@ export default function DashboardClient({
   };
 
   const handleSave = async () => {
+    if (isSaving) return;
     setIsSaving(true);
     try {
       await updateTransaction(editingTransaction.id, editingTransaction);
       setNotification({ msg: "Alterações salvas!", type: "success" });
       setIsModalOpen(false);
       refreshData();
-    } catch {
-      setNotification({ msg: "Erro ao salvar.", type: "error" });
+    } catch (error) {
+      setNotification({ msg: extractErrorMessage(error, "Erro ao salvar."), type: "error" });
     } finally {
       setIsSaving(false);
     }
@@ -107,25 +122,28 @@ export default function DashboardClient({
     switch (activeTab) {
       case "chat":
         return <ChatTab activeTab={activeTab} />;
-      case "categories":
-        return (
-          <CategoriesTab
-            categorias={categorias}
-            setNotification={setNotification}
-            refreshData={refreshData}
-          />
-        );
-      case "alerts":
-        return (
-          <AlertsTab
-            activeTab={activeTab}
-            categorias={categorias}
-            setNotification={setNotification}
-            refreshData={refreshData}
-          />
-        );
       case "settings":
         return <SettingsTab />;
+      case "chart_of_accounts":
+        return <ChartOfAccountsTab setNotification={setNotification} refreshData={refreshData} />;
+      case "branches":
+        return <BranchesTab setNotification={setNotification} refreshData={refreshData} />;
+      case "customers":
+        return <CustomersTab setNotification={setNotification} refreshData={refreshData} />;
+      case "suppliers":
+        return <SuppliersTab setNotification={setNotification} refreshData={refreshData} />;
+      case "bank_accounts":
+        return <BankAccountsTab setNotification={setNotification} refreshData={refreshData} />;
+      case "point_of_sale":
+        return <PointOfSaleTab setNotification={setNotification} refreshData={refreshData} />;
+      case "payables":
+        return <PayablesTab setNotification={setNotification} />;
+      case "receivables":
+        return <ReceivablesTab setNotification={setNotification} />;
+      case "dre":
+        return <DreTab setNotification={setNotification} />;
+      case "cash_flow":
+        return <CashFlowTab setNotification={setNotification} />;
       case "dashboard":
         return renderDashboard();
       default:
@@ -202,71 +220,71 @@ export default function DashboardClient({
         </div>
       </div>
 
-      {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="glass-card p-6 lg:col-span-2">
-          <h3 className="text-xl font-semibold text-white mb-6">Fluxo de Caixa (Mensal)</h3>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={fluxoCaixa}>
-                <defs>
-                  <linearGradient id="colorReceita" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorDespesa" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="name" stroke="#4b5563" />
-                <YAxis stroke="#4b5563" />
-                <Tooltip contentStyle={{ backgroundColor: "rgba(23, 25, 31, 0.9)", border: "none", borderRadius: "10px" }} itemStyle={{ color: "#fff" }} />
-                <Area type="monotone" dataKey="receita" stroke="#10b981" fillOpacity={1} fill="url(#colorReceita)" strokeWidth={3} />
-                <Area type="monotone" dataKey="despesa" stroke="#ef4444" fillOpacity={1} fill="url(#colorDespesa)" strokeWidth={3} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="glass-card p-6 flex flex-col md:flex-row items-center gap-8">
-          <div className="w-full md:w-1/3">
-            <h3 className="text-xl font-semibold text-white mb-6">Categorias</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={categorias} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
-                    {categorias.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={{ backgroundColor: "rgba(23, 25, 31, 0.95)", border: "none", borderRadius: "16px", backdropFilter: "blur(10px)" }} />
-                </PieChart>
+      {/* Gráficos — alturas fixas numéricas evitam avisos do Recharts */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="glass-card p-6 lg:col-span-2">
+            <h3 className="text-xl font-semibold text-white mb-6">Fluxo de Caixa (Mensal)</h3>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height={280} debounce={100}>
+                <AreaChart data={fluxoCaixa} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorReceita" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorDespesa" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="name" stroke="#4b5563" />
+                  <YAxis stroke="#4b5563" />
+                  <Tooltip contentStyle={{ backgroundColor: "rgba(23, 25, 31, 0.9)", border: "none", borderRadius: "10px" }} itemStyle={{ color: "#fff" }} />
+                  <Area type="monotone" dataKey="receita" stroke="#10b981" fillOpacity={1} fill="url(#colorReceita)" strokeWidth={3} />
+                  <Area type="monotone" dataKey="despesa" stroke="#ef4444" fillOpacity={1} fill="url(#colorDespesa)" strokeWidth={3} />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          <div className="w-full md:w-2/3 space-y-4 max-h-[300px] overflow-y-auto pr-4 custom-scrollbar">
-            {categorias.map((item, index) => {
-              const percent = despesas > 0 ? ((item.value / despesas) * 100).toFixed(1) : "0";
-              return (
-                <div key={item.name} className="group">
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-300 flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color || COLORS[index % COLORS.length] }} />
-                      {item.name}
-                    </span>
-                    <span className="text-white font-bold">{formatCurrency(item.value)} <span className="text-gray-500 font-normal ml-2">({percent}%)</span></span>
+          <div className="glass-card p-6 flex flex-col md:flex-row items-center gap-8">
+            <div className="w-full md:w-1/3">
+              <h3 className="text-xl font-semibold text-white mb-6">Categorias</h3>
+              <div className="h-[250px] w-full">
+                <ResponsiveContainer width="100%" height={230} debounce={100}>
+                  <PieChart>
+                    <Pie data={categorias} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
+                      {categorias.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ backgroundColor: "rgba(23, 25, 31, 0.95)", border: "none", borderRadius: "16px", backdropFilter: "blur(10px)" }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="w-full md:w-2/3 space-y-4 max-h-[300px] overflow-y-auto pr-4 custom-scrollbar">
+              {categorias.map((item, index) => {
+                const percent = despesas > 0 ? ((item.value / despesas) * 100).toFixed(1) : "0";
+                return (
+                  <div key={item.name} className="group">
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-300 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color || COLORS[index % COLORS.length] }} />
+                        {item.name}
+                      </span>
+                      <span className="text-white font-bold">{formatCurrency(item.value)} <span className="text-gray-500 font-normal ml-2">({percent}%)</span></span>
+                    </div>
+                    <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-full transition-all duration-1000 group-hover:brightness-125" style={{ width: `${percent}%`, backgroundColor: item.color || COLORS[index % COLORS.length] }} />
+                    </div>
                   </div>
-                  <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
-                    <div className="h-full transition-all duration-1000 group-hover:brightness-125" style={{ width: `${percent}%`, backgroundColor: item.color || COLORS[index % COLORS.length] }} />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
 
       {/* Transações Recentes */}
       <div className="glass-card p-6">
@@ -344,9 +362,17 @@ export default function DashboardClient({
         <nav className="flex flex-col gap-2">
           {[
             { key: "dashboard", label: "Dashboard", icon: Activity },
+            { key: "point_of_sale", label: "Frente de Caixa", icon: Wallet },
+            { key: "payables", label: "Contas a Pagar", icon: TrendingDown },
+            { key: "receivables", label: "Contas a Receber", icon: TrendingUp },
+            { key: "dre", label: "D.R.E.", icon: BarChart3 },
+            { key: "cash_flow", label: "Proj. Fluxo de Caixa", icon: CalendarDays },
+            { key: "branches", label: "Filiais", icon: Building },
+            { key: "customers", label: "Clientes", icon: Users },
+            { key: "suppliers", label: "Fornecedores", icon: Truck },
+            { key: "bank_accounts", label: "Contas Bancárias", icon: Landmark },
+            { key: "chart_of_accounts", label: "Plano de Contas", icon: BookOpen },
             { key: "chat", label: "Chat (WhatsApp)", icon: MessageSquare },
-            { key: "categories", label: "Categorias", icon: PieIcon },
-            { key: "alerts", label: "Alertas", icon: Bell },
             { key: "settings", label: "Configurações", icon: Settings },
           ].map(({ key, label, icon: Icon }) => (
             <button

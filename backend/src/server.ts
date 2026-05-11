@@ -7,8 +7,15 @@ import { logger } from "./utils/logger";
 import { errorHandlerPlugin } from "./plugins/errorHandler";
 import { webhookRoutes } from "./routes/webhook";
 import { transactionRoutes } from "./routes/transactions";
-import { categoryRoutes } from "./routes/categories";
-import { limitRoutes } from "./routes/limits";
+import { branchRoutes } from "./routes/branches";
+import { customerRoutes } from "./routes/customers";
+import { supplierRoutes } from "./routes/suppliers";
+import { bankAccountRoutes } from "./routes/bankAccounts";
+import { chartOfAccountRoutes } from "./routes/chartOfAccounts";
+import { dreRoutes } from "./routes/dre";
+import { cashFlowRoutes } from "./routes/cashflow";
+
+import crypto from "crypto";
 
 const server = Fastify({
   logger: false,
@@ -19,12 +26,32 @@ const server = Fastify({
 
 const isDev = process.env.NODE_ENV !== "production";
 
+server.register(errorHandlerPlugin);
+
 server.register(cors, {
   origin: isDev ? "*" : ["http://localhost:3000"],
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 });
 
-server.register(errorHandlerPlugin);
+// Hook global para capturar erros silenciosos
+server.addHook("onError", async (request, reply, error) => {
+  logger.error({
+    msg: "Erro capturado via hook global onError",
+    error: error.message,
+    stack: error.stack,
+    url: request.url,
+    method: request.method,
+    traceId: request.id
+  });
+});
+
+// "Escudo" contra erro 400 por Content-Type em corpo vazio (ex: DELETE)
+// Movido para onRequest para agir ANTES do parser de body do Fastify
+server.addHook("onRequest", async (request) => {
+  if (request.method === "DELETE" && request.headers["content-type"]) {
+    delete request.headers["content-type"];
+  }
+});
 
 // --- Hooks de Observabilidade ---
 
@@ -48,6 +75,18 @@ server.addHook("onResponse", async (request, reply) => {
   });
 });
 
+server.addHook("onSend", async (request, reply, payload) => {
+  if (reply.statusCode === 400) {
+    logger.warn({
+      msg: "Resposta 400 enviada pelo servidor",
+      url: request.url,
+      method: request.method,
+      payload: payload,
+      traceId: request.id
+    });
+  }
+});
+
 // --- Healthcheck ---
 
 server.get("/health", async () => {
@@ -58,8 +97,14 @@ server.get("/health", async () => {
 
 server.register(webhookRoutes);
 server.register(transactionRoutes);
-server.register(categoryRoutes);
-server.register(limitRoutes);
+server.register(branchRoutes);
+server.register(customerRoutes);
+server.register(supplierRoutes);
+server.register(bankAccountRoutes);
+server.register(chartOfAccountRoutes);
+server.register(dreRoutes);
+server.register(cashFlowRoutes);
+
 
 // --- Bootstrap ---
 

@@ -1,8 +1,10 @@
 import { PrismaClient } from "@prisma/client";
+import { Pool } from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
 import "dotenv/config";
 
-// Usamos o PrismaClient nativo sem adaptadores para máxima estabilidade e performance de memória.
-// O pool de conexões é gerenciado internamente pelo Prisma através da DATABASE_URL.
-export const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
-});
+const connectionString = `${process.env.DATABASE_URL}`;
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
+
+export const prisma = new PrismaClient({ adapter });

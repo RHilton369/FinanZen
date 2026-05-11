@@ -1,12 +1,12 @@
 # 🧘 FinanZen: Gestão Financeira Inteligente via WhatsApp
 
-O **FinanZen** é um ecossistema de gestão financeira pessoal que utiliza Inteligência Artificial para transformar mensagens simples de WhatsApp e fotos de comprovantes em registros financeiros organizados e dashboards interativos.
+O **FinanZen** é um ecossistema de gestão financeira, evoluindo de uma ferramenta pessoal baseada no WhatsApp para um sistema corporativo Multi-Filiais (MVP). O sistema utiliza Inteligência Financeira e Web Dashboards para transformar operações corporativas em uma experiência clara e fluida.
 
 ---
 
-## 🚀 Visão Geral
+## 🚀 Visão Geral (Transição MVP Multi-Filial)
 
-O sistema permite que o usuário registre gastos e receitas sem a necessidade de abrir aplicativos complexos. Basta enviar uma mensagem como *"Gastei 50 no almoço"* ou uma foto de um recibo, e a IA processa, categoriza e armazena os dados automaticamente.
+O projeto iniciou como um bot de WhatsApp (Legado) e atualmente passa por uma migração em fases (Fase 1 iniciada) para suportar uma gestão de negócios estruturada, contendo `Filiais`, `Plano de Contas`, `Clientes`, `Fornecedores` e relatórios avançados (DRE e Fluxo de Caixa). O WhatsApp continua sendo uma via rápida de lançamento, agora totalmente integrada à nova arquitetura robusta e livre de N+1.
 
 ### 🛠️ Tecnologias Utilizadas
 
@@ -110,5 +110,16 @@ Recentemente, o sistema passou por uma auditoria de performance para garantir ro
 ---
 
 ## 📝 Licença
-Este projeto é para uso pessoal e educacional. Desenvolvido com foco em UX e automação inteligente.
+Este projeto é para uso educacional e profissional. Desenvolvido com foco em UX e automação inteligente.
+
+---
+
+## 📈 Histórico de Progresso
+
+- **Fase 1 (Concluída):** Modelagem de Dados Relacional e Base Arquitetural Multi-Filiais.
+  - O Prisma Schema foi completamente atualizado, substituindo o modelo básico (`Category`, `BudgetLimit`) por uma infraestrutura empresarial (`Branch`, `Customer`, `Supplier`, `BankAccount`, `ChartOfAccount`).
+  - Atualização nas validações com Zod e reformulação de rotas (Webhook, Transactions) para se alinharem ao novo escopo focado no MVP empresarial FinanZen.
+- **Fase 2 (Concluída):** Desenvolvimento do Módulo Multi-Filiais e Cadastros Base.
+  - Implementação das rotas de CRUD (API Backend Fastify) para os módulos base: Filiais, Clientes, Fornecedores, Contas Bancárias e Plano de Contas.
+  - Desenvolvimento das 5 Telas/Tabs no frontend (Next.js) integradas ao Dashboard para gerenciamento visual da arquitetura empresarial.
 

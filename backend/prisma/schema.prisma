@@ -6,6 +6,149 @@ datasource db {
   provider = "postgresql"
 }
 
+model User {
+  id          String       @id @default(uuid()) @db.Uuid
+  phone       String       @unique @db.VarChar(20)
+  name        String?      @db.VarChar(100)
+  email       String?      @unique @db.VarChar(255)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  deletedAt   DateTime?    @map("deleted_at")
+  branches    Branch[]
+  messageLogs MessageLog[]
+
+  @@index([phone])
+  @@map("users")
+}
+
+model Branch {
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String           @db.VarChar(100)
+  cnpj            String?          @db.VarChar(20)
+  logo            String?          @db.VarChar(255)
+  userId          String           @map("user_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  bankAccounts    BankAccount[]
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chartOfAccounts ChartOfAccount[]
+  customers       Customer[]
+  suppliers       Supplier[]
+  transactions    Transaction[]
+
+  @@index([userId])
+  @@map("branches")
+}
+
+model Customer {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String        @db.VarChar(100)
+  document     String?       @db.VarChar(20)
+  email        String?       @db.VarChar(255)
+  phone        String?       @db.VarChar(20)
+  branchId     String        @map("branch_id") @db.Uuid
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  branch       Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([branchId])
+  @@map("customers")
+}
+
+model Supplier {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String        @db.VarChar(100)
+  document     String?       @db.VarChar(20)
+  email        String?       @db.VarChar(255)
+  phone        String?       @db.VarChar(20)
+  branchId     String        @map("branch_id") @db.Uuid
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  branch       Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([branchId])
+  @@map("suppliers")
+}
+
+model BankAccount {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String        @db.VarChar(100)
+  bank         String?       @db.VarChar(100)
+  agency       String?       @db.VarChar(20)
+  account      String?       @db.VarChar(20)
+  branchId     String        @map("branch_id") @db.Uuid
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  branch       Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([branchId])
+  @@map("bank_accounts")
+}
+
+model ChartOfAccount {
+  id           String          @id @default(uuid()) @db.Uuid
+  name         String          @db.VarChar(100)
+  type         TransactionType
+  dreCategory  String?         @db.VarChar(100)
+  branchId     String          @map("branch_id") @db.Uuid
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  branch       Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([branchId])
+  @@map("chart_of_accounts")
+}
+
+model Transaction {
+  id               String            @id @default(uuid()) @db.Uuid
+  amount           Decimal           @db.Decimal(12, 2)
+  type             TransactionType
+  status           TransactionStatus @default(COMPLETED)
+  description      String            @db.VarChar(255)
+  date             DateTime          @default(now())
+  dueDate          DateTime?
+  paymentDate      DateTime?
+  documentType     String?           @db.VarChar(50)
+  branchId         String            @map("branch_id") @db.Uuid
+  bankAccountId    String?           @map("bank_account_id") @db.Uuid
+  chartOfAccountId String?           @map("chart_of_account_id") @db.Uuid
+  customerId       String?           @map("customer_id") @db.Uuid
+  supplierId       String?           @map("supplier_id") @db.Uuid
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  deletedAt        DateTime?         @map("deleted_at")
+  bankAccount      BankAccount?      @relation(fields: [bankAccountId], references: [id])
+  branch           Branch            @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  chartOfAccount   ChartOfAccount?   @relation(fields: [chartOfAccountId], references: [id])
+  customer         Customer?         @relation(fields: [customerId], references: [id])
+  supplier         Supplier?         @relation(fields: [supplierId], references: [id])
+
+  @@index([branchId])
+  @@index([date])
+  @@index([dueDate])
+  @@map("transactions")
+}
+
+model MessageLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  from      String   @db.VarChar(20)
+  text      String
+  response  String?
+  isImage   Boolean  @default(false)
+  status    String   @default("PROCESSED")
+  userId    String?  @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([from])
+  @@index([createdAt])
+  @@map("message_logs")
+}
 
 enum TransactionType {
   INCOME
@@ -14,111 +157,8 @@ enum TransactionType {
 
 enum TransactionStatus {
   PENDING
+  PAID
+  LATE
   COMPLETED
   CANCELLED
 }
-
-model User {
-  id        String    @id @default(uuid()) @db.Uuid
-  phone     String    @unique @db.VarChar(20) // WhatsApp number
-  name      String?   @db.VarChar(100)
-  email     String?   @unique @db.VarChar(255)
-  isActive  Boolean   @default(true)
-  
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
-
-  transactions Transaction[]
-  limits       BudgetLimit[]
-  categories   Category[]
-  messageLogs  MessageLog[]
-
-  @@map("users")
-  @@index([phone])
-}
-
-model Category {
-  id          String    @id @default(uuid()) @db.Uuid
-  name        String    @db.VarChar(100)
-  description String?   @db.Text
-  color       String?   @db.VarChar(7)
-  icon        String?   @db.VarChar(50)
-  isDefault   Boolean   @default(false)
-  
-  userId      String    @db.Uuid @map("user_id")
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  deletedAt   DateTime? @map("deleted_at")
-
-  transactions Transaction[]
-  limits       BudgetLimit[]
-
-  @@unique([name, userId])
-  @@map("categories")
-  @@index([userId])
-}
-
-model Transaction {
-  id          String            @id @default(uuid()) @db.Uuid
-  amount      Decimal           @db.Decimal(12, 2)
-  type        TransactionType
-  status      TransactionStatus @default(COMPLETED)
-  description String            @db.VarChar(255)
-  date        DateTime          @default(now())
-  
-  categoryId  String            @db.Uuid @map("category_id")
-  category    Category          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  
-  userId      String            @db.Uuid @map("user_id")
-  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
-  deletedAt   DateTime?         @map("deleted_at")
-
-  @@map("transactions")
-  @@index([userId])
-  @@index([categoryId])
-  @@index([date])
-}
-
-model BudgetLimit {
-  id         String    @id @default(uuid()) @db.Uuid
-  amount     Decimal   @db.Decimal(12, 2)
-  period     String    @default("MONTHLY") @db.VarChar(20) // "MONTHLY", "WEEKLY", "YEARLY"
-  
-  categoryId String    @db.Uuid @map("category_id")
-  category   Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  
-  userId     String    @db.Uuid @map("user_id")
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-
-  @@unique([categoryId, userId])
-  @@map("budget_limits")
-  @@index([userId])
-}
-
-model MessageLog {
-  id        String   @id @default(uuid()) @db.Uuid
-  from      String   @db.VarChar(20)
-  text      String   @db.Text
-  response  String?  @db.Text
-  isImage   Boolean  @default(false)
-  status    String   @default("PROCESSED") // "PROCESSED", "FAILED"
-  
-  userId    String?  @db.Uuid @map("user_id")
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@map("message_logs")
-  @@index([from])
-  @@index([createdAt])
-}
-
